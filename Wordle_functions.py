@@ -69,41 +69,44 @@ def filter_words(guess, answer, allowed_words):
 
     #letter in word at correct place. Rejects all words where the letter is not in that position
     #Example: guess: moose, solution: bones -> all words without o at second position are rejected
-    for i in range(5):
-        letter = guess[i]
-        if answer[i] == 2:
-            allowed_words = list(filter(lambda x: x.startswith(letter, i), allowed_words))
-            if letter not in letter_count:
-                letter_count[letter] = 1
-            else:
-                letter_count[letter] += 1
+    if 2 in answer:
+        for i in range(5):
+            letter = guess[i]
+            if answer[i] == 2:
+                allowed_words = list(filter(lambda x: x.startswith(letter, i), allowed_words))
+                if letter not in letter_count:
+                    letter_count[letter] = 1
+                else:
+                    letter_count[letter] += 1
 
     #letter in word at wrong place
     #Example: guess: sissy, solution: bones -> 
         #all words with s at position 1 are rejected
         #all words that don't have an s are rejected
-    for i in range(5):
-        letter = guess[i]
+    if 1 in answer:
+        for i in range(5):
+            letter = guess[i]
 
-        if answer[i] == 1:
-            allowed_words = list(filter(lambda x: not x.startswith(letter, i), allowed_words)) #filters all words that have that char at that pos
-            allowed_words = [k for k in allowed_words if letter in k] #filters remaining list to force letter to be in word
-            if letter not in letter_count:
-                letter_count[letter] = 1
-            else:
-                letter_count[letter] += 1
+            if answer[i] == 1:
+                allowed_words = list(filter(lambda x: not x.startswith(letter, i), allowed_words)) #filters all words that have that char at that pos
+                allowed_words = [k for k in allowed_words if letter in k] #filters remaining list to force letter to be in word
+                if letter not in letter_count:
+                    letter_count[letter] = 1
+                else:
+                    letter_count[letter] += 1
         
     #letter not in word
     #Example: guess: sissy, solution: bones ->
         #all words with y are rejected
         #although reply for letter s at position 3 is 0, only words with s at position 3 are rejected, because it must be in the word somewhere
-    for i in range(5):
-        letter = guess[i]
-        if answer[i] == 0:
-            if not letter in letter_count:
-                allowed_words = [k for k in allowed_words if not letter in k] #filter all words that have that letter
-            else:
-                allowed_words = list(filter(lambda x: not x.startswith(letter, i), allowed_words)) #filters all words that have that char at that pos
+    if 0 in answer:
+        for i in range(5):
+            letter = guess[i]
+            if answer[i] == 0:
+                if not letter in letter_count:
+                    allowed_words = [k for k in allowed_words if not letter in k] #filter all words that have that letter
+                else:
+                    allowed_words = list(filter(lambda x: not x.startswith(letter, i), allowed_words)) #filters all words that have that char at that pos
 
     #letters not often enough in word
     for letter in letter_count:
