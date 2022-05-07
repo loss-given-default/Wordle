@@ -1,3 +1,5 @@
+import math
+
 def wordle_reply(solution, input): 
     """
     Wordle game
@@ -140,3 +142,89 @@ def wordle_reply_generator():
     for number in range(3, 10):
         reply_map = [k for k in reply_map if not number in k]
     return reply_map
+
+
+def guess_probability_map(guess, word_list, reply_map = wordle_reply_generator()):
+    """
+    Calculates how likely each wordle reply (e.g. [0 0 1 0 0]) is for a given guess,
+    word_list (i.e. possible solutions) and reply_map (i.e. possible replies)
+
+        Args:
+            guess (str):        The guessed word
+            word_list (list):   Possible solutions
+            reply_map (list):   Possible replies. Will be filtered for invalid replies
+
+        Returns:
+            prob_list (list):   list of tuples with replies and probability of that reply
+    """
+
+    prob_list = []
+    check_replies = False
+    for c in guess:
+        if guess.count(c) > 0:
+            check_replies = True
+            break
+    
+    for reply in reply_map:
+        # check if reply makes sense -> e.g. for word sissy a reply [0 0 1 0 0] doesnt make sense
+        # because if s is in word it would only be [1 0 0 0 0]/[2 0 0 0 0]/[0 0 0 2 0]/[1 0 0 2 0] etc.
+        # In other words, it checkes if a letter in guess is twice and if yes it 
+        if check_replies:
+            invalid_reply = False
+            for i in range(5):
+                for j in range(i+1, 5):
+                    if guess[i] == guess[j]:
+                        if reply[j] == 1 and reply[i] == 0:
+                            invalid_reply = True
+                            
+            if invalid_reply:
+                continue
+
+        #create prob_list
+        matches = filter_words(guess, reply, allowed_words = word_list)
+        prob = len(matches) / len(word_list)
+        if prob != 0:
+            prob_list.append((reply, prob))
+      
+    return prob_list
+
+
+def expected_entropy_from_map(probability_map):
+    """
+    Calculates expected entropy from a list of probabilities
+
+        Args:
+            probability_map (list): list of tuples with replies and probability of that reply
+
+        Returns:
+            e (float):              expected entropy E[I] in bits
+    """
+    
+    if round(sum(row[1] for row in probability_map), 5) != 1:
+        # makes sure that all probabilities sum up to 1
+        raise Exception(f"What kind of probability map is that?! {round(sum(probability_map), 5)}")
+
+    e = 0.0
+    for p in probability_map:
+        e += p[1] * math.log2(1/p[1])
+
+    return e
+
+
+def expected_entropy_from_word(guess, word_list, reply_map = wordle_reply_generator()):
+    """
+    Calculates how likely each wordle reply (e.g. [0 0 1 0 0]) is for a given guess,
+    word_list (i.e. possible solutions) and reply_map (i.e. possible replies) and then
+    calculates the expected entropy for that guess
+
+        Args:
+            guess (str):        The guessed word
+            word_list (list):   Possible solutions
+            reply_map (list):   Possible replies. Will be filtered for invalid replies
+
+        Returns:
+            e (float):          expected entropy E[I] in bits
+    """
+    prob = guess_probability_map(guess, word_list, reply_map = reply_map)
+    e = expected_entropy_from_map(prob)
+    return e
