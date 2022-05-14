@@ -1,4 +1,6 @@
 import math
+import pickle
+import numpy as np
 
 def wordle_reply(solution, input): 
     """
@@ -228,3 +230,42 @@ def expected_entropy_from_word(guess, word_list, reply_map = wordle_reply_genera
     prob = guess_probability_map(guess, word_list, reply_map = reply_map)
     e = expected_entropy_from_map(prob)
     return e
+
+
+def save_entropy_db(entropy_db, n = 10):
+    """
+    Saves entropy_db to pickled databases in multiple chunks
+
+        Args:
+            n (int):            Number of chunks
+            entropy_db (dict):  The entropy_db dictionary
+    """
+    lists = [{} for _ in range(n)]
+    chunked_data = [[k, v] for k, v in entropy_db.items()]
+    chunked_data = np.array_split(chunked_data, n)
+
+    for i in range(n):
+        for key, value in chunked_data[i]:
+            lists[i][key] = value
+    
+    for i in range(n):
+        with open('entropy_db_'+str(i)+'.pkl', 'wb') as x:
+            pickle.dump(lists[i], x)
+
+def load_entropy_db(n = 10):
+    """
+    Loads entropy_db from multiple chunked files
+
+        Args:
+            n (int):            Number of chunks
+
+        Returns:
+            entropy_db (dict):  The entropy_db dictionary
+    """
+    entropy_db = {}
+
+    for i in range(n):
+        with open('entropy_db_'+str(i)+'.pkl', 'rb') as x:
+            entropy_db.update(pickle.load(x))
+
+    return entropy_db
