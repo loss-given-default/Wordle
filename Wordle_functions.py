@@ -249,7 +249,7 @@ def save_entropy_db(entropy_db, n = 10):
             lists[i][key] = value
     
     for i in range(n):
-        with open('entropy_db_'+str(i)+'.pkl', 'wb') as x:
+        with open('entropy database/entropy_db_'+str(i)+'.pkl', 'wb') as x:
             pickle.dump(lists[i], x)
 
 def load_entropy_db(n = 10):
@@ -265,7 +265,7 @@ def load_entropy_db(n = 10):
     entropy_db = {}
 
     for i in range(n):
-        with open('entropy_db_'+str(i)+'.pkl', 'rb') as x:
+        with open('entropy database/entropy_db_'+str(i)+'.pkl', 'rb') as x:
             entropy_db.update(pickle.load(x))
 
     return entropy_db
