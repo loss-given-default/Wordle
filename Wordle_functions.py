@@ -146,7 +146,7 @@ def wordle_reply_generator():
     return reply_map
 
 
-def guess_probability_map(guess, word_list, reply_map = wordle_reply_generator()):
+def guess_probability_map(guess, word_list, freq_map, reply_map = wordle_reply_generator(), ):
     """
     Calculates how likely each wordle reply (e.g. [0 0 1 0 0]) is for a given guess,
     word_list (i.e. possible solutions) and reply_map (i.e. possible replies)
@@ -155,6 +155,7 @@ def guess_probability_map(guess, word_list, reply_map = wordle_reply_generator()
             guess (str):        The guessed word
             word_list (list):   Possible solutions
             reply_map (list):   Possible replies. Will be filtered for invalid replies
+            freq_map (dict):
 
         Returns:
             prob_list (list):   list of tuples with replies and probability of that reply
@@ -162,6 +163,15 @@ def guess_probability_map(guess, word_list, reply_map = wordle_reply_generator()
 
     prob_list = []
     check_replies = False
+    # if not freq_map: 
+    #     freq_map = {k: (1/len(word_list)) for k in word_list}
+    # else:
+    #     total = sum(freq_map.values())
+    #     freq_map = {k: (v/total) for (k, v) in freq_map.items()}
+
+    if (len(freq_map) != len(word_list) or round(sum(freq_map.values()), 10) != 1):
+        raise Exception(f"something is wrong with freq_map {len(freq_map) - len(word_list)}\t{sum(freq_map.values())}")
+
     for c in guess:
         if guess.count(c) > 0:
             check_replies = True
@@ -184,7 +194,9 @@ def guess_probability_map(guess, word_list, reply_map = wordle_reply_generator()
 
         #create prob_list
         matches = filter_words(guess, reply, allowed_words = word_list)
-        prob = len(matches) / len(word_list)
+        matches_freq = [freq_map[x] for x in matches]
+        prob = sum(matches_freq)
+
         if prob != 0:
             prob_list.append((reply, prob))
       
@@ -213,7 +225,7 @@ def expected_entropy_from_map(probability_map):
     return e
 
 
-def expected_entropy_from_word(guess, word_list, reply_map = wordle_reply_generator()):
+def expected_entropy_from_word(guess, word_list, reply_map = wordle_reply_generator(), freq_map = {}):
     """
     Calculates how likely each wordle reply (e.g. [0 0 1 0 0]) is for a given guess,
     word_list (i.e. possible solutions) and reply_map (i.e. possible replies) and then
@@ -223,16 +235,30 @@ def expected_entropy_from_word(guess, word_list, reply_map = wordle_reply_genera
             guess (str):        The guessed word
             word_list (list):   Possible solutions
             reply_map (list):   Possible replies. Will be filtered for invalid replies
+            freq_map (dict):    xx
 
         Returns:
             e (float):          expected entropy E[I] in bits
     """
-    prob = guess_probability_map(guess, word_list, reply_map = reply_map)
+    if not freq_map:
+        freq_map_standardised = {k: (1/len(word_list)) for k in word_list}
+    elif len(freq_map) != len(reply_map):
+        freq_map_standardised = standardize_freq_map(freq_map, word_list)
+
+    prob = guess_probability_map(guess, word_list, freq_map_standardised, reply_map = reply_map)
     e = expected_entropy_from_map(prob)
     return e
 
 
-def save_entropy_db(entropy_db, n = 10):
+def standardize_freq_map(freq_map, word_list):
+    freq_map_standardised = {k:freq_map[k] for k in word_list}
+    total = sum(freq_map_standardised.values())
+    freq_map_standardised = {k:(v/total) for (k,v) in freq_map_standardised.items()}
+
+    return freq_map_standardised
+
+
+def save_entropy_db(entropy_db, filename, n = 10):
     """
     Saves entropy_db to pickled databases in multiple chunks
 
@@ -249,10 +275,11 @@ def save_entropy_db(entropy_db, n = 10):
             lists[i][key] = value
     
     for i in range(n):
-        with open('entropy database/entropy_db_'+str(i)+'.pkl', 'wb') as x:
+        with open(f'entropy database/{filename}_{str(i)}.pkl', 'wb') as x:
             pickle.dump(lists[i], x)
 
-def load_entropy_db(n = 10):
+
+def load_entropy_db(filename, n = 10):
     """
     Loads entropy_db from multiple chunked files
 
@@ -265,7 +292,107 @@ def load_entropy_db(n = 10):
     entropy_db = {}
 
     for i in range(n):
-        with open('entropy database/entropy_db_'+str(i)+'.pkl', 'rb') as x:
+        with open(f'entropy database/{filename}_{str(i)}.pkl', 'rb') as x:
             entropy_db.update(pickle.load(x))
 
     return entropy_db
+
+
+
+
+
+
+
+
+
+
+"""
+Generate stable hashes for Python data objects.
+Contains no business logic.
+The hashes should be stable across interpreter implementations and versions.
+Supports dataclass instances, datetimes, and JSON-serializable objects.
+Empty dataclass fields are ignored, to allow adding new fields without
+the hash changing. Empty means one of: None, '', (), [], or {}.
+The dataclass type is ignored: two instances of different types
+will have the same hash if they have the same attribute/value pairs.
+"""
+import dataclasses
+import datetime
+import hashlib
+import json
+from collections.abc import Collection
+from typing import Any
+from typing import Dict
+
+
+# Implemented for https://github.com/lemon24/reader/issues/179
+
+
+# The first byte of the hash contains its version,
+# to allow upgrading the implementation without changing existing hashes.
+# (In practice, it's likely we'll just let the hash change and update
+# the affected objects again; nevertheless, it's good to have the option.)
+#
+# A previous version recommended using a check_hash(thing, hash) -> bool
+# function instead of direct equality checking; it was removed because
+# it did not allow objects to cache the hash.
+
+_VERSION = 0
+_EXCLUDE = '_hash_exclude_'
+
+
+def get_hash(thing: object) -> bytes:
+    prefix = _VERSION.to_bytes(1, 'big')
+    digest = hashlib.md5(_json_dumps(thing).encode('utf-8')).digest()
+    return prefix + digest[:-1]
+
+
+def _json_dumps(thing: object) -> str:
+    return json.dumps(
+        thing,
+        default=_json_default,
+        # force formatting-related options to known values
+        ensure_ascii=False,
+        sort_keys=True,
+        indent=None,
+        separators=(',', ':'),
+    )
+
+
+def _json_default(thing: object) -> Any:
+    try:
+        return _dataclass_dict(thing)
+    except TypeError:
+        pass
+    if isinstance(thing, datetime.datetime):
+        return thing.isoformat(timespec='microseconds')
+    raise TypeError(f"Object of type {type(thing).__name__} is not JSON serializable")
+
+
+def _dataclass_dict(thing: object) -> Dict[str, Any]:
+    # we could have used dataclasses.asdict()
+    # with a dict_factory that drops empty values,
+    # but asdict() is recursive and we need to intercept and check
+    # the _hash_exclude_ of nested dataclasses;
+    # this way, json.dumps() does the recursion instead of asdict()
+
+    # raises TypeError for non-dataclasses
+    fields = dataclasses.fields(thing)
+    # ... but doesn't for dataclass *types*
+    if isinstance(thing, type):
+        raise TypeError("got type, expected instance")
+
+    exclude = getattr(thing, _EXCLUDE, ())
+
+    rv = {}
+    for field in fields:
+        if field.name in exclude:
+            continue
+
+        value = getattr(thing, field.name)
+        if value is None or not value and isinstance(value, Collection):
+            continue
+
+        rv[field.name] = value
+
+    return rv
