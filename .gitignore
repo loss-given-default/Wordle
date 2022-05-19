@@ -2,3 +2,5 @@ Test.py
 __pycache__/Wordle_functions.cpython-39.pyc
 Test2.py
 Test2helper.py
+.idea
+.venv
