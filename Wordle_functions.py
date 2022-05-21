@@ -323,7 +323,7 @@ def save_entropy_db(entropy_db, filename, n = 30):
             pickle.dump(lists[i], x)
 
 
-def load_entropy_db(filename, n = 100):
+def load_entropy_db(filename, n = 30):
     """
     Loads entropy_db from multiple chunked files
 
