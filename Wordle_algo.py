@@ -4,12 +4,18 @@ import inquirer
 import os
 
 import numpy as np
-import matplotlib.pyplot as plt
 import Wordle_functions as wrdl
 
 from time import sleep
 from alive_progress import alive_it, config_handler
 from scipy.special import expit #sigmoid function
+from IPython.display import clear_output
+
+"""
+Proudly coded by hand
+Github with annotated functions and jupyter notebook on
+https://github.com/loss-given-default/Wordle
+"""
 
 config_handler.set_global(force_tty=True, bar = "classic2", spinner = "classic", title='Playing Wordle intensively')
 
@@ -21,7 +27,6 @@ def clearConsole():
 
 
 ### Algorithm mark 1
-#takes around 60 seconds to run
 def wordle_algorithm_1(solutions = None, allowed_words = None, max_tries = 12974, manual = False, verbose = False, bar = False):
     """
     Wordle algorithm mark 1
@@ -134,12 +139,10 @@ def apply_sigmoid(data_dict, multiplier = 10, summand = -0.5):
 
     return newD
 
-
-
-
+### Algorithm 3, 4 & 4.5
 def wordle_algorithm_4(solutions = None, allowed_words = None, \
     max_tries = 12974, manual = False, verbose = False, entropy_db = None, \
-    freq_map = None, bar = False):
+    freq_map = None, bar = False, custom_score = (0, 0, 0), jup = False):
     """
     Wordle algorithm mark 4: Makes use of the information from wordl reply by filtering out words
     that can't be the solution. Suggests guess with highest expected entropy from reduced solution
@@ -152,46 +155,52 @@ def wordle_algorithm_4(solutions = None, allowed_words = None, \
             manual(bool):           If true, it asks for input for reply
             verbose(bool):          If true lots of stuff is printed
             entropy_db(dict):       Dictionary of hashes with entropy list
-            freq_map(dict):         xx TODO
+            freq_map(dict):         Dictionary of words (key) and frequency (value). Does not need to be standardized
+            custom_score():         tuple of 3 parameters from np.polyfit to calculate expected number of guesses
+            jup(bool):              Clears screen for verbose mode in jup
             
         Returns:
             taken_tries (list):     list of int how many tries it took to solve for each solution
     """
     
-    taken_tries = []
+    taken_tries = {}
     reply = []
-    print_queue = []
+    score_list = [None] * len(allowed_words)
     len_db = len(entropy_db)
+    allowed_words = sorted(allowed_words)
+    reduced_reply_map_save = wrdl.wordle_reply_generator()
+    inf_start = wrdl.entropy_from_distribution(freq_map, allowed_words)   
 
     if bar: bar = alive_it(solutions)
     else: bar = solutions
 
     for s in bar:
-        hash_list = []
+
+        history = []
+        print_queue = []
         hash_list = [sum(list(freq_map.values()))]
-        allowed_words = sorted(allowed_words)
         reduced_list = allowed_words
-        reduced_reply_map = wrdl.wordle_reply_generator()
+        reduced_reply_map = reduced_reply_map_save
+        inf = inf_start    
+
         try: bar.title = f"-> Currently solving {s}"
         except: pass
-        
-        if manual or verbose: 
-            inf = wrdl.standardize_freq_map(freq_map, reduced_list)
-            inf = [p*math.log2(1/p) for (k, p) in inf.items()]
-            inf = sum(inf)
 
+        if manual or verbose:
             clearConsole()
-            if manual: print_queue.append(f"I:{inf:.4}|{len(allowed_words)} possible solutions")
-            else: print_queue.append(f"{s}|I:{inf:.4}|{solutions.index(s)+1/len(solutions):.2%}")
+            if jup: clear_output(wait=True)
+            if manual: print_queue.append(f"\t\t\t\tI:{inf:.3} bits {len(allowed_words)} words")
+            else: print_queue.append(f"{s}\tI:{inf:.4}\t{(solutions.index(s)+1)/len(solutions):.2%}")
             for string in print_queue: print(string)
         for i in range(max_tries):
+            history.append((i+1, inf))
             cur_hash = wrdl.get_hash(str(hash_list))
             if len(reduced_list) == 1:
                 guess = reduced_list[0]
                 EI = 0
             else:
                 if cur_hash in entropy_db:
-                    entropies_list = entropy_db[cur_hash]
+                    entropies_list_all = entropy_db[cur_hash]
                 else:   
                     #get all E[I] for reduced list
                     entropies_list = []         
@@ -206,37 +215,34 @@ def wordle_algorithm_4(solutions = None, allowed_words = None, \
                         entropies_list.append(wrdl.expected_entropy_from_word(word, word_list = reduced_list, reply_map = reduced_reply_map, freq_map = freq_map))
                         tmp2 += 1
                     
-                    entropy_db[cur_hash] = entropies_list
-                entropies_dict_all = dict(zip(allowed_words, entropies_list))
-                v = list(entropies_dict_all.values())
-                k = list(entropies_dict_all.keys())
-                cand = k[v.index(max(v))]   
-                cand1 = [cand, entropies_dict_all[k[v.index(max(v))]]]
+                    #Select best guess
+                    best_freq_map = wrdl.standardize_freq_map(freq_map, reduced_list)
+                    prob_db = [best_freq_map[g] for g in allowed_words]
+                    
+                    entropies_list_all = list(zip(entropies_list, prob_db, allowed_words))
+                    entropies_list_all = sorted(entropies_list_all, reverse = True)
 
-                entropies_dict_reduced = {k: entropies_dict_all[k] for k in reduced_list}
-                v = list(entropies_dict_reduced.values())
-                k = list(entropies_dict_reduced.keys())
-                cand = k[v.index(max(v))]   
-                cand2 = [cand, entropies_dict_reduced[k[v.index(max(v))]]]
-           
-                if cand1[1] > cand2[1]:
-                    guess = cand1[0]
-                    EI = float(cand1[1])
-                else:
-                    guess = cand2[0]
-                    EI = float(cand2[1])
+                    entropy_db[cur_hash] = entropies_list_all #TODO Check if it works
+                
+                for j in range(len(entropies_list_all)):
+                    x, p, word = entropies_list_all[j]
+                    x = inf - x #Expected residual entropy of solution space after guessing word
+                    a, b, c = custom_score #parameters of polyfit regression (2 degrees)
+                    if a == b == c == 0: score = 0
+                    else: score = p*(i+1) + (1-p)*((i+1)+(a*pow(x, 2) + b*x +c))
+                    score_list[j] = (round(-score, 10), round(inf- x, 10), p, word)
+                score_list = sorted(score_list, reverse = True)
+
+
+                guess = score_list[0][-1]
+                EI = score_list[0][1]
                 
             if manual and EI != 0: 
-                #Best guesses:
-                #print_later = f"Guess: {cand2[0]}\tE[I]:{cand2[1]:.2f} bits"
-                best_guesses = list(entropies_dict_all.items())
-                best_guesses.sort(key=lambda x:x[1], reverse = True)
-
                 print_later = ["", "", ""]
                 i = 0
-                for word in best_guesses:
-                    if word[0] in reduced_list:
-                        print_later[i] = f"{word[0]} E[I]:{word[1]:.2f} bits"
+                for word in score_list:
+                    if word[-1] in reduced_list:
+                        print_later[i] = f"{word[-1]} E[I]:{word[-3]:.2f} bits P: {word[-2]:.2%} S: {word[0]:.2f}"
                         i += 1
                     if i == 3: break
 
@@ -244,11 +250,11 @@ def wordle_algorithm_4(solutions = None, allowed_words = None, \
                     inquirer.List('guess',
                                         message="Choose your guess!",
                                         choices=[
-                                            f"{best_guesses[0][0]} E[I]:{best_guesses[0][1]:.2f} bits", 
-                                            f"{best_guesses[2][0]} E[I]:{best_guesses[2][1]:.2f} bits", 
-                                            f"{best_guesses[1][0]} E[I]:{best_guesses[1][1]:.2f} bits", 
-                                            f"{best_guesses[3][0]} E[I]:{best_guesses[3][1]:.2f} bits",
-                                            f"{best_guesses[4][0]} E[I]:{best_guesses[4][1]:.2f} bits",
+                                            f"{score_list[0][-1]} E[I]:{score_list[0][-3]:.2f} bits P: {score_list[0][-2]:.2%} S: {score_list[0][0]:.2f}", 
+                                            f"{score_list[1][-1]} E[I]:{score_list[1][-3]:.2f} bits P: {score_list[1][-2]:.2%} S: {score_list[1][0]:.2f}", 
+                                            f"{score_list[2][-1]} E[I]:{score_list[2][-3]:.2f} bits P: {score_list[2][-2]:.2%} S: {score_list[2][0]:.2f}", 
+                                            f"{score_list[3][-1]} E[I]:{score_list[3][-3]:.2f} bits P: {score_list[3][-2]:.2%} S: {score_list[3][0]:.2f}",
+                                            f"{score_list[4][-1]} E[I]:{score_list[4][-3]:.2f} bits P: {score_list[4][-2]:.2%} S: {score_list[4][0]:.2f}",
                                             "--------------------",
                                             print_later[0],
                                             print_later[1],
@@ -258,44 +264,44 @@ def wordle_algorithm_4(solutions = None, allowed_words = None, \
                     ]
 
                 guess = inquirer.prompt(possible_guesses)["guess"][:5]
-                try: EI = entropies_dict_all[guess]
+                try: EI = [x[1] for x in score_list if x[3] == guess][0]
                 except:
                     guess = str(input()).lower()
+                    EI = [x[1] for x in score_list if x[3] == guess][0]
 
                 if EI == 0: #-> solution is known by algorithm
                     reply = [2, 2, 2, 2, 2]
                 elif len(s) == 5: #-> solution was provided
                     reply = wrdl.wordle_reply(s, guess)
                 else: #-> solution was not provided
-                    reply = [int(item) for item in input("Wordl reply e.g. 0 2 1 0 0").split()]
-                #clear_output(wait=True)
+                    reply = [int(item) for item in input("Wordl reply e.g. 0 2 1 0 0\n").split()]
+            elif EI == 0: reply = [2, 2, 2, 2, 2]
             else: reply = wrdl.wordle_reply(s, guess)
-            hash_list.append((guess, reply))
+            
 
             if sum(reply) == 10: 
-                inf = math.log2(len(reduced_list)) #1/(1/x) = x #TODO Calculation incorrect for variable freq_map
                 if manual or verbose: 
                     clearConsole()
+                    if jup: clear_output(wait=True)
                     print_queue.append(f"{wrdl.wordle_print(reply)} {guess} E[I]:{EI:.2f} bits I:{inf:.2f} bits ✔️")
                     for string in print_queue: print(string)
+                    
                 break
-        
+                
+            hash_list.append((guess, reply))
+            inf_before = inf
+            reduced_list = wrdl.filter_words(guess, reply, allowed_words = reduced_list)
+            inf = float(wrdl.entropy_from_distribution(freq_map, reduced_list))
+            rec_inf = inf_before - inf
+
             if manual or verbose:
-                inf_before = wrdl.standardize_freq_map(freq_map, reduced_list)
-                inf_before = sum([p*math.log2(1/p) for (k, p) in inf_before.items()])
-
-                reduced_list = wrdl.filter_words(guess, reply, allowed_words = reduced_list)
-
-                inf = wrdl.standardize_freq_map(freq_map, reduced_list)
-                inf = [p*math.log2(1/p) for (k, p) in inf.items()]
-                inf = inf_before - sum(inf)
-
                 clearConsole()
-                print_queue.append(f"{wrdl.wordle_print(reply)} {guess} E[I]:{EI:.2f} bits I:{inf:.2f} bits {len(reduced_list)} words")
+                if jup: clear_output(wait=True)
+                print_queue.append(f"{wrdl.wordle_print(reply)} {guess} E[I]:{EI:.2f} bits I:{rec_inf:.2f} bits {len(reduced_list)} words {inf:.3} bits left")
                 for string in print_queue: print(string)
                 if 1 < len(reduced_list) < 16: print(reduced_list)
 
-        taken_tries.append(i+1)        
+        taken_tries[s] = history    
 
     if len(entropy_db) > len_db:
         wrdl.save_entropy_db(entropy_db, "entropy_db")
