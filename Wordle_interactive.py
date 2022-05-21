@@ -58,7 +58,7 @@ if "specify" in answers["solution"]:
         solutions = [answers["solutions"]]
 
         if len(solutions[0]) != 5: raise Exception("input needs to be 5 characters")
-elif "random" in answers["solution"]: solutions = [random.choice(solutions)]
+elif "random" in answers["solution"]: solutions = random.sample(solutions, len(solutions))
 elif "automatic" in answers["solution"]:
     answers.update(inquirer.prompt(nrsolutions))
     solutions = solutions[0:int(answers["solutions"])]

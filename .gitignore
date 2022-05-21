@@ -6,3 +6,6 @@ Test2helper.py
 .venv
 __pycache__/Wordle_algo.cpython-310.pyc
 __pycache__/Wordle_functions.cpython-310.pyc
+Wordle_interactive.py
+.gitignore
+__pycache__/Wordle_functions.cpython-37.pyc
