@@ -31,18 +31,22 @@ possible_algorithms = [
 options = [
   inquirer.Checkbox('options',
                     message="Which options",
-                    choices=['Verbose', "Manual", "Progress bar"],
+                    choices=['Verbose', "Manual", "Progress bar", "Minimize guesses"],
                     )
 ]
 known_solution = [
   inquirer.List('solution',
                     message="What's the solution?",
-                    choices=['unknown', "specify", "random"],
+                    choices=['unknown', "specify", "random", "automatic"],
                     )
 ]
 solution = [
     inquirer.Text('solutions',
                   message="What's the solution word?")
+]
+nrsolutions = [
+    inquirer.Text('solutions',
+                  message="How many solutions? Max 2309")
 ]
 
 answers = inquirer.prompt(possible_algorithms)
@@ -55,12 +59,17 @@ if "specify" in answers["solution"]:
 
         if len(solutions[0]) != 5: raise Exception("input needs to be 5 characters")
 elif "random" in answers["solution"]: solutions = [random.choice(solutions)]
+elif "automatic" in answers["solution"]:
+    answers.update(inquirer.prompt(nrsolutions))
+    solutions = solutions[0:int(answers["solutions"])]
 else: solutions = ["Manual"]
 
 
 manual = "Manual" in answers["options"] 
 verbose = "Verbose" in answers["options"] 
 bar = "Progress bar" in answers["options"] 
+if "Minimize guesses" in answers["options"]: custom_score = (-0.012405539570697632, 0.3642899622411526, 1.1890485932345454)
+else: custom_score = (0, 0, 0)
 
 if answers["algorithm"][-1] == "1":
     taken_tries = algo.wordle_algorithm_1(solutions = solutions, verbose = verbose, bar = bar, allowed_words = all_allowed)
@@ -69,8 +78,9 @@ if answers["algorithm"][-1] == "2":
     taken_tries = algo.wordle_algorithm_2(manual = manual, bar = bar, solutions = solutions, verbose = verbose, allowed_words = all_allowed)
 
 if answers["algorithm"][-1] in ["3", "4"]:
+    filename = input("Which filename?\n")
     print("\nLoading data from previous games")
-    entropy_db = wrdl.load_entropy_db("entropy_db")
+    entropy_db = wrdl.load_entropy_db(filename)
     print(f"{len(entropy_db)} hashes imported\n")
 
 
@@ -80,13 +90,14 @@ if answers["algorithm"][-1] == "3":
 
 
     #running algo
-    taken_tries = algo.wordle_algorithm_4(solutions = solutions,
+    history = algo.wordle_algorithm_4(solutions = solutions,
                                             allowed_words = all_allowed, 
                                             entropy_db = entropy_db, 
                                             freq_map = uniform_freq_map, 
                                             verbose = verbose,
                                             manual = manual,
-                                            bar = bar)
+                                            bar = bar,
+                                            custom_score = (0, 0, 0))
 
 if answers["algorithm"][-1] == "4":
     #loading word frequency dataset and creating dictionary of word frequency for all allowed words
@@ -111,14 +122,23 @@ if answers["algorithm"][-1] == "4":
     all_allowed_freq_sigmoid = algo.apply_sigmoid(all_allowed_freq,10,-0.5)
 
     #running algo
-    taken_tries = algo.wordle_algorithm_4(solutions = solutions,
+    history = algo.wordle_algorithm_4(solutions = solutions,
                                             allowed_words = all_allowed, 
                                             entropy_db = entropy_db, 
                                             freq_map = all_allowed_freq_sigmoid, 
                                             verbose = verbose,
                                             manual = manual,
-                                            bar = bar)
+                                            bar = bar,
+                                            custom_score = custom_score)
+                                            
 
-invalid_guesses = [x for x in taken_tries if x > 6]
-print(f"Average number of tries:\t{sum(taken_tries)/len(taken_tries):.2}")
-print(f"Number of losses:\t\t{len(invalid_guesses)} = {len(invalid_guesses)/len(taken_tries):.2%}")
+
+try: 
+    tries = sum(i[-1][0] for i in list(history.values()))
+    invalid = [i[-1][0] for i in list(history.values()) if i[-1][0] > 6]
+    print(f"Average number of tries:\t{tries/len(history):.4}")
+    print(f"Number of losses:\t\t{len(invalid)} = {len(invalid)/len(history):.2%}")
+except:
+    invalid_guesses = [x for x in taken_tries if x > 6]
+    print(f"Average number of tries:\t{sum(taken_tries)/len(taken_tries):.2}")
+    print(f"Number of losses:\t\t{len(invalid_guesses)} = {len(invalid_guesses)/len(taken_tries):.2%}")

@@ -1,5 +1,6 @@
 import math
 import pickle
+import bz2
 import numpy as np
 
 def wordle_reply(solution, input): 
@@ -155,7 +156,7 @@ def guess_probability_map(guess, word_list, freq_map, reply_map = wordle_reply_g
             guess (str):        The guessed word
             word_list (list):   Possible solutions
             reply_map (list):   Possible replies. Will be filtered for invalid replies
-            freq_map (dict):
+            freq_map (dict):    Dictionary of words (key) and frequency (value)
 
         Returns:
             prob_list (list):   list of tuples with replies and probability of that reply
@@ -169,7 +170,7 @@ def guess_probability_map(guess, word_list, freq_map, reply_map = wordle_reply_g
     #     total = sum(freq_map.values())
     #     freq_map = {k: (v/total) for (k, v) in freq_map.items()}
 
-    if (len(freq_map) != len(word_list) or round(sum(freq_map.values()), 10) != 1):
+    if (len(freq_map) < len(word_list) or round(sum(freq_map.values()), 10) != 1):
         raise Exception(f"something is wrong with freq_map {len(freq_map) - len(word_list)}\t{sum(freq_map.values())}")
 
     for c in guess:
@@ -218,6 +219,7 @@ def expected_entropy_from_map(probability_map):
         # makes sure that all probabilities sum up to 1
         raise Exception(f"What kind of probability map is that?! {round(sum(probability_map), 5)}")
 
+def expected_entropy_from_map(probability_map):
     e = 0.0
     for p in probability_map:
         e += p[1] * math.log2(1/p[1])
@@ -235,7 +237,7 @@ def expected_entropy_from_word(guess, word_list, reply_map = wordle_reply_genera
             guess (str):        The guessed word
             word_list (list):   Possible solutions
             reply_map (list):   Possible replies. Will be filtered for invalid replies
-            freq_map (dict):    xx
+            freq_map (dict):    Dictionary of words (key) and frequency (value)
 
         Returns:
             e (float):          expected entropy E[I] in bits
@@ -251,14 +253,47 @@ def expected_entropy_from_word(guess, word_list, reply_map = wordle_reply_genera
 
 
 def standardize_freq_map(freq_map, word_list):
-    freq_map_standardised = {k:freq_map[k] for k in word_list}
+    """
+    Standardizes a freq_map (dict) given a word list. Sum of freq_map will be set to 1
+    and freq of words not included in word_list is set to 0.0
+
+        Args:
+            freq_map (dict):                Dictionary of words (key) and frequency (value)
+            word_list (list):               Possible solutions
+
+        Returns:
+            freq_map_standardised (dict):   Standardized dictionary of words (key) and frequency (value)
+    """
+    freq_map_standardised = {k:v for (k,v) in freq_map.items()}
+    for k in freq_map_standardised.keys():
+        if k not in word_list: freq_map_standardised[k] = 0.0
+    
     total = sum(freq_map_standardised.values())
     freq_map_standardised = {k:(v/total) for (k,v) in freq_map_standardised.items()}
 
     return freq_map_standardised
 
 
-def save_entropy_db(entropy_db, filename, n = 10):
+def entropy_from_distribution(freq_map, word_list):
+    """
+    Calculates the entropy / information in a distribution of words given their frequency
+
+        Args:
+            freq_map (dict):                Dictionary of words (key) and frequency (value)
+            word_list (list):               Possible solutions
+
+        Returns:
+            freq_map_standardised (dict):   Standardized dictionary of words (key) and frequency (value)
+    """
+    inf = standardize_freq_map(freq_map, word_list)
+    inf = [p*math.log2(1/p) for p in inf.values() if p != 0]
+    inf = sum(inf)
+
+    return inf
+
+
+
+def save_entropy_db(entropy_db, filename, n = 30):
     """
     Saves entropy_db to pickled databases in multiple chunks
 
@@ -266,20 +301,29 @@ def save_entropy_db(entropy_db, filename, n = 10):
             n (int):            Number of chunks
             entropy_db (dict):  The entropy_db dictionary
     """
+    # filename = str(input("What filename to append to? e.g. entropy_db "))
+    # try: 
+    #     write = load_entropy_db(filename)
+    #     write.update(entropy_db)
+    # except:
+    write = entropy_db
+    #     pass
     lists = [{} for _ in range(n)]
-    chunked_data = [[k, v] for k, v in entropy_db.items()]
+    chunked_data = [[k, v] for k, v in write.items()]
     chunked_data = np.array_split(chunked_data, n)
+    filename = str(input("What filename? e.g. entropy_db "))
 
     for i in range(n):
         for key, value in chunked_data[i]:
             lists[i][key] = value
     
     for i in range(n):
-        with open(f'entropy database/{filename}_{str(i)}.pkl', 'wb') as x:
+        with bz2.BZ2File(f'entropy database/{filename}_{str(i)}.pkl', 'wb') as x:
+            print(f"Saving database {i+1}/{n}")
             pickle.dump(lists[i], x)
 
 
-def load_entropy_db(filename, n = 10):
+def load_entropy_db(filename, n = 100):
     """
     Loads entropy_db from multiple chunked files
 
@@ -290,9 +334,11 @@ def load_entropy_db(filename, n = 10):
             entropy_db (dict):  The entropy_db dictionary
     """
     entropy_db = {}
+#    filename = str(input("What filename? e.g. entropy_db "))
 
     for i in range(n):
-        with open(f'entropy database/{filename}_{str(i)}.pkl', 'rb') as x:
+        with bz2.BZ2File(f'entropy database/{filename}_{str(i)}.pkl', 'rb') as x:
+            print(f"Loading database {i+1}/{n}")
             entropy_db.update(pickle.load(x))
 
     return entropy_db
