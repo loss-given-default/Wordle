@@ -187,7 +187,7 @@ def wordle_algorithm_4(solutions = None, allowed_words = None, \
         except: pass
 
         if manual or verbose:
-            clearConsole()
+            #clearConsole()
             if jup: clear_output(wait=True)
             if manual: print_queue.append(f"\t\t\t\tI:{inf:.3} bits {len(allowed_words)} words")
             else: print_queue.append(f"{s}\tI:{inf:.4}\t{(solutions.index(s)+1)/len(solutions):.2%}")

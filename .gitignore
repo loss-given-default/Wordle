@@ -9,3 +9,4 @@ __pycache__/Wordle_functions.cpython-310.pyc
 Wordle_interactive.py
 .gitignore
 __pycache__/Wordle_functions.cpython-37.pyc
+*.pyc
