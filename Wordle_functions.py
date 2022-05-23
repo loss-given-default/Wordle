@@ -225,8 +225,6 @@ def expected_entropy_from_map(probability_map):
         # makes sure that all probabilities sum up to 1
         raise Exception(f"What kind of probability map is that?! {round(sum(probability_map), 5)}")
 
-
-def expected_entropy_from_map(probability_map):
     e = 0.0
     for p in probability_map:
         e += p[1] * math.log2(1 / p[1])
