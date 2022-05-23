@@ -44,7 +44,8 @@ def wordle_algorithm_1(solutions=None, allowed_words=None, max_tries=12974, manu
     """
 
     taken_tries = []
-    if manual: solutions = ["a"]
+    if manual:
+        solutions = ["a"]
 
     if bar:
         bar = alive_it(solutions)
@@ -62,7 +63,8 @@ def wordle_algorithm_1(solutions=None, allowed_words=None, max_tries=12974, manu
             else:
                 reply = wrdl.wordle_reply(s, guess[i])
 
-            if verbose: print(wrdl.wordle_print(reply), "", guess[i])
+            if verbose:
+                print(wrdl.wordle_print(reply), "", guess[i])
             if sum(reply) == 10:
                 break
         taken_tries.append(i + 1)
@@ -88,7 +90,8 @@ def wordle_algorithm_2(solutions=None, allowed_words=None, max_tries=12974, manu
     """
 
     taken_tries = []
-    if manual: solutions = ["a"]
+    if manual:
+        solutions = ["a"]
 
     if bar:
         bar = alive_it(solutions)
@@ -98,7 +101,8 @@ def wordle_algorithm_2(solutions=None, allowed_words=None, max_tries=12974, manu
     for s in bar:
         guess = random.choice(allowed_words)  # initial guess
         reduced_list = allowed_words
-        if verbose: print(s)
+        if verbose:
+            print(s)
         for i in range(max_tries):  # reduces list over iterations
             if manual:
                 print(f"Try: {guess}")
@@ -110,7 +114,8 @@ def wordle_algorithm_2(solutions=None, allowed_words=None, max_tries=12974, manu
                 reply = wrdl.wordle_reply(s, guess)
                 reduced_list = wrdl.filter_words(guess, reply, allowed_words=reduced_list)
                 inf = -math.log2(1 / len(reduced_list))
-                if verbose: print(wrdl.wordle_print(reply), guess, f"{len(reduced_list)} words\tI: {inf:.2}")
+                if verbose:
+                    print(wrdl.wordle_print(reply), guess, f"{len(reduced_list)} words\tI: {inf:.2}")
 
             guess = random.choice(reduced_list)
 

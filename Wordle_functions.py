@@ -60,8 +60,6 @@ def wordle_print(reply):
 
 
 def filter_words(guess, answer, allowed_words):
-    # !This function is not very efficient.
-    # ?Can we improve this?
     """
     Filters solution space from received information
 
@@ -139,7 +137,6 @@ def filter_words(guess, answer, allowed_words):
 
 
 def wordle_reply_generator():
-    # ?dumbest way to create list of all possible replies but I cant think of a better way rn
     """
     Generates reply_map with all possible wordl replies. Example reply: [1, 2, 0, 2, 2]           
 
@@ -179,7 +176,7 @@ def guess_probability_map(guess, word_list, freq_map, reply_map=wordle_reply_gen
     #     total = sum(freq_map.values())
     #     freq_map = {k: (v/total) for (k, v) in freq_map.items()}
 
-    if (len(freq_map) < len(word_list) or round(sum(freq_map.values()), 10) != 1):
+    if len(freq_map) < len(word_list) or round(sum(freq_map.values()), 10) != 1:
         raise Exception(f"something is wrong with freq_map {len(freq_map) - len(word_list)}\t{sum(freq_map.values())}")
 
     for c in guess:
