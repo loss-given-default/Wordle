@@ -3,7 +3,8 @@ import pickle
 import bz2
 import numpy as np
 
-def wordle_reply(solution, input): 
+
+def wordle_reply(solution, input):
     """
     Wordle game
 
@@ -23,22 +24,22 @@ def wordle_reply(solution, input):
     solution = list(solution)
     input = list(input)
 
-    #Check correctly placed chars
+    # Check correctly placed chars
     for i in range(0, 5):
-        if input[i] == solution[i]: 
+        if input[i] == solution[i]:
             output[i] = 2
             solution[i] = 0
             input[i] = False
 
-
-    #Check incorrectly placed chars
+    # Check incorrectly placed chars
     for i in range(0, 5):
         if input[i]:
-            if input[i] in solution: 
+            if input[i] in solution:
                 output[i] = 1
                 solution[solution.index(input[i])] = 0
 
     return output
+
 
 def wordle_print(reply):
     # reply either [0, 0, 0, 0, 0]
@@ -46,15 +47,19 @@ def wordle_print(reply):
 
     if type(reply) == str:
         reply = [int(d) for d in str(reply)]
-        
+
     output_str = ""
     for element in reply:
-        if element == 0: output_str += "⬜"
-        elif element == 1: output_str += "🟨"
-        elif element == 2: output_str += "🟩"
+        if element == 0:
+            output_str += "⬜"
+        elif element == 1:
+            output_str += "🟨"
+        elif element == 2:
+            output_str += "🟩"
     return output_str
 
-def filter_words(guess, answer, allowed_words): 
+
+def filter_words(guess, answer, allowed_words):
     # !This function is not very efficient.
     # ?Can we improve this?
     """
@@ -72,8 +77,8 @@ def filter_words(guess, answer, allowed_words):
 
     letter_count = {}
 
-    #letter in word at correct place. Rejects all words where the letter is not in that position
-    #Example: guess: moose, solution: bones -> all words without o at second position are rejected
+    # letter in word at correct place. Rejects all words where the letter is not in that position
+    # Example: guess: moose, solution: bones -> all words without o at second position are rejected
     if 2 in answer:
         for i in range(5):
             letter = guess[i]
@@ -84,53 +89,57 @@ def filter_words(guess, answer, allowed_words):
                 else:
                     letter_count[letter] += 1
 
-    #letter in word at wrong place
-    #Example: guess: sissy, solution: bones -> 
-        #all words with s at position 1 are rejected
-        #all words that don't have an s are rejected
+    # letter in word at wrong place
+    # Example: guess: sissy, solution: bones ->
+    # all words with s at position 1 are rejected
+    # all words that don't have an s are rejected
     if 1 in answer:
         for i in range(5):
             letter = guess[i]
 
             if answer[i] == 1:
-                allowed_words = list(filter(lambda x: not x.startswith(letter, i), allowed_words)) #filters all words that have that char at that pos
-                allowed_words = [k for k in allowed_words if letter in k] #filters remaining list to force letter to be in word
+                allowed_words = list(filter(lambda x: not x.startswith(letter, i),
+                                            allowed_words))  # filters all words that have that char at that pos
+                allowed_words = [k for k in allowed_words if
+                                 letter in k]  # filters remaining list to force letter to be in word
                 if letter not in letter_count:
                     letter_count[letter] = 1
                 else:
                     letter_count[letter] += 1
-        
-    #letter not in word
-    #Example: guess: sissy, solution: bones ->
-        #all words with y are rejected
-        #although reply for letter s at position 3 is 0, only words with s at position 3 are rejected, because it must be in the word somewhere
+
+    # letter not in word
+    # Example: guess: sissy, solution: bones ->
+    # all words with y are rejected
+    # although reply for letter s at position 3 is 0, only words with s at position 3 are rejected, because it must be in the word somewhere
     if 0 in answer:
         for i in range(5):
             letter = guess[i]
             if answer[i] == 0:
                 if not letter in letter_count:
-                    allowed_words = [k for k in allowed_words if not letter in k] #filter all words that have that letter
+                    allowed_words = [k for k in allowed_words if
+                                     not letter in k]  # filter all words that have that letter
                 else:
-                    allowed_words = list(filter(lambda x: not x.startswith(letter, i), allowed_words)) #filters all words that have that char at that pos
+                    allowed_words = list(filter(lambda x: not x.startswith(letter, i),
+                                                allowed_words))  # filters all words that have that char at that pos
 
-    #letters not often enough in word
+    # letters not often enough in word
     for letter in letter_count:
-        allowed_words = [k for k in allowed_words if  k.count(letter) >= letter_count[letter]]
+        allowed_words = [k for k in allowed_words if k.count(letter) >= letter_count[letter]]
 
-    #letters too often in word
-    #Example: guess = "sissy", reply = [0,0,0,2,0]: "frass" needs to be filtered out
+    # letters too often in word
+    # Example: guess = "sissy", reply = [0,0,0,2,0]: "frass" needs to be filtered out
     for letter in letter_count:
-        for i in range(6-1):
-            for j in range(i+1, 6-1):
+        for i in range(6 - 1):
+            for j in range(i + 1, 6 - 1):
                 if guess[i] == guess[j] and guess[i] == letter:
                     if (answer[i] >= 1 and answer[j] == 0) or (answer[j] == 2 and answer[i] == 0):
-                        allowed_words = [k for k in allowed_words if  k.count(letter) == letter_count[letter]]
+                        allowed_words = [k for k in allowed_words if k.count(letter) == letter_count[letter]]
 
     return allowed_words
 
 
 def wordle_reply_generator():
-    #?dumbest way to create list of all possible replies but I cant think of a better way rn
+    # ?dumbest way to create list of all possible replies but I cant think of a better way rn
     """
     Generates reply_map with all possible wordl replies. Example reply: [1, 2, 0, 2, 2]           
 
@@ -141,13 +150,13 @@ def wordle_reply_generator():
     for a in range(0, 22223):
         sub_list = [int(d) for d in "{:05d}".format(a)]
         reply_map.append(sub_list)
-    
+
     for number in range(3, 10):
         reply_map = [k for k in reply_map if not number in k]
     return reply_map
 
 
-def guess_probability_map(guess, word_list, freq_map, reply_map = wordle_reply_generator(), ):
+def guess_probability_map(guess, word_list, freq_map, reply_map=wordle_reply_generator(), ):
     """
     Calculates how likely each wordle reply (e.g. [0 0 1 0 0]) is for a given guess,
     word_list (i.e. possible solutions) and reply_map (i.e. possible replies)
@@ -177,7 +186,7 @@ def guess_probability_map(guess, word_list, freq_map, reply_map = wordle_reply_g
         if guess.count(c) > 0:
             check_replies = True
             break
-    
+
     for reply in reply_map:
         # check if reply makes sense -> e.g. for word sissy a reply [0 0 1 0 0] doesnt make sense
         # because if s is in word it would only be [1 0 0 0 0]/[2 0 0 0 0]/[0 0 0 2 0]/[1 0 0 2 0] etc.
@@ -185,22 +194,22 @@ def guess_probability_map(guess, word_list, freq_map, reply_map = wordle_reply_g
         if check_replies:
             invalid_reply = False
             for i in range(5):
-                for j in range(i+1, 5):
+                for j in range(i + 1, 5):
                     if guess[i] == guess[j]:
                         if reply[j] == 1 and reply[i] == 0:
                             invalid_reply = True
-                            
+
             if invalid_reply:
                 continue
 
-        #create prob_list
-        matches = filter_words(guess, reply, allowed_words = word_list)
+        # create prob_list
+        matches = filter_words(guess, reply, allowed_words=word_list)
         matches_freq = [freq_map[x] for x in matches]
         prob = sum(matches_freq)
 
         if prob != 0:
             prob_list.append((reply, prob))
-      
+
     return prob_list
 
 
@@ -214,20 +223,21 @@ def expected_entropy_from_map(probability_map):
         Returns:
             e (float):              expected entropy E[I] in bits
     """
-    
+
     if round(sum(row[1] for row in probability_map), 5) != 1:
         # makes sure that all probabilities sum up to 1
         raise Exception(f"What kind of probability map is that?! {round(sum(probability_map), 5)}")
 
+
 def expected_entropy_from_map(probability_map):
     e = 0.0
     for p in probability_map:
-        e += p[1] * math.log2(1/p[1])
+        e += p[1] * math.log2(1 / p[1])
 
     return e
 
 
-def expected_entropy_from_word(guess, word_list, reply_map = wordle_reply_generator(), freq_map = {}):
+def expected_entropy_from_word(guess, word_list, reply_map=wordle_reply_generator(), freq_map={}):
     """
     Calculates how likely each wordle reply (e.g. [0 0 1 0 0]) is for a given guess,
     word_list (i.e. possible solutions) and reply_map (i.e. possible replies) and then
@@ -243,11 +253,11 @@ def expected_entropy_from_word(guess, word_list, reply_map = wordle_reply_genera
             e (float):          expected entropy E[I] in bits
     """
     if not freq_map:
-        freq_map_standardised = {k: (1/len(word_list)) for k in word_list}
+        freq_map_standardised = {k: (1 / len(word_list)) for k in word_list}
     elif len(freq_map) != len(reply_map):
         freq_map_standardised = standardize_freq_map(freq_map, word_list)
 
-    prob = guess_probability_map(guess, word_list, freq_map_standardised, reply_map = reply_map)
+    prob = guess_probability_map(guess, word_list, freq_map_standardised, reply_map=reply_map)
     e = expected_entropy_from_map(prob)
     return e
 
@@ -264,12 +274,12 @@ def standardize_freq_map(freq_map, word_list):
         Returns:
             freq_map_standardised (dict):   Standardized dictionary of words (key) and frequency (value)
     """
-    freq_map_standardised = {k:v for (k,v) in freq_map.items()}
+    freq_map_standardised = {k: v for (k, v) in freq_map.items()}
     for k in freq_map_standardised.keys():
         if k not in word_list: freq_map_standardised[k] = 0.0
-    
+
     total = sum(freq_map_standardised.values())
-    freq_map_standardised = {k:(v/total) for (k,v) in freq_map_standardised.items()}
+    freq_map_standardised = {k: (v / total) for (k, v) in freq_map_standardised.items()}
 
     return freq_map_standardised
 
@@ -286,14 +296,13 @@ def entropy_from_distribution(freq_map, word_list):
             freq_map_standardised (dict):   Standardized dictionary of words (key) and frequency (value)
     """
     inf = standardize_freq_map(freq_map, word_list)
-    inf = [p*math.log2(1/p) for p in inf.values() if p != 0]
+    inf = [p * math.log2(1 / p) for p in inf.values() if p != 0]
     inf = sum(inf)
 
     return inf
 
 
-
-def save_entropy_db(entropy_db, filename, n = 30):
+def save_entropy_db(entropy_db, filename, n=30):
     """
     Saves entropy_db to pickled databases in multiple chunks
 
@@ -316,14 +325,14 @@ def save_entropy_db(entropy_db, filename, n = 30):
     for i in range(n):
         for key, value in chunked_data[i]:
             lists[i][key] = value
-    
+
     for i in range(n):
         with bz2.BZ2File(f'entropy database/{filename}_{str(i)}.pkl', 'wb') as x:
-            print(f"Saving database {i+1}/{n}")
+            print(f"Saving database {i + 1}/{n}")
             pickle.dump(lists[i], x)
 
 
-def load_entropy_db(filename, n = 30):
+def load_entropy_db(filename, n=30):
     """
     Loads entropy_db from multiple chunked files
 
@@ -334,22 +343,14 @@ def load_entropy_db(filename, n = 30):
             entropy_db (dict):  The entropy_db dictionary
     """
     entropy_db = {}
-#    filename = str(input("What filename? e.g. entropy_db "))
+    #    filename = str(input("What filename? e.g. entropy_db "))
 
     for i in range(n):
         with bz2.BZ2File(f'entropy database/{filename}_{str(i)}.pkl', 'rb') as x:
-            print(f"Loading database {i+1}/{n}")
+            print(f"Loading database {i + 1}/{n}")
             entropy_db.update(pickle.load(x))
 
     return entropy_db
-
-
-
-
-
-
-
-
 
 
 """
@@ -369,7 +370,6 @@ import json
 from collections.abc import Collection
 from typing import Any
 from typing import Dict
-
 
 # Implemented for https://github.com/lemon24/reader/issues/179
 
